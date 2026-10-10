@@ -64,6 +64,7 @@
   <div class="card">
     <h2>Join the test in 2 steps</h2>
     <p>Use the same Google account that is signed in to the Play Store on your Android phone.</p>
+    <div class="wait" id="inapp-note" hidden><b>Heads-up:</b> you're in an in-app browser that isn't signed in to Google, so the buttons below open <b>Chrome</b> (or the Play Store), where your Google account is.</div>
 
     <div class="step">
       <span class="num">1</span>
@@ -95,7 +96,7 @@
   // Page events for Grafana, relayed by the mmw-site-events Cloudflare Worker (my-english-world/cloudflare-worker/site-events.js).
   var EVENTS_URL = "https://mmw-site-events.miav55555.workers.dev/";
   var SERVICE = "Mobtiply Site";
-  var PAGE_VERSION = "1";
+  var PAGE_VERSION = "2";
   var params = new URLSearchParams(location.search);
   var ua = navigator.userAgent || "";
   var ref = document.referrer || "";
@@ -110,6 +111,20 @@
     for (var k in base) parts.push("event_data_" + k + "=" + esc(base[k]));
     var payload = { streams: [{ stream: { service_name: SERVICE, deployment_environment: "production", kind: "event" }, values: [[String(Date.now()) + "000000", parts.join(" ")]] }] };
     try { fetch(EVENTS_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload), keepalive: true }); } catch (e) {}
+  }
+  // In-app browsers (Taboola, Facebook, ...) aren't signed in to Google, so joining the group or opting in fails there.
+  // On Android, hand those links to Chrome with an intent URL, and the install link to the Play Store app.
+  if (platform === "android" && inApp !== "none") {
+    base.flow = "chrome_intent";
+    document.getElementById("inapp-note").hidden = false;
+    ["btn-join", "btn-optin"].forEach(function (id) {
+      var a = document.getElementById(id), url = a.href;
+      a.href = "intent://" + url.replace(/^https:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
+      a.removeAttribute("target");
+    });
+    var inst = document.getElementById("btn-install");
+    inst.href = "market://details?id=com.masoft.mobtiply";
+    inst.removeAttribute("target");
   }
   send("landing_view");
   ["btn-join", "btn-optin", "btn-install"].forEach(function (id) {
